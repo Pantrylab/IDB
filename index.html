@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IDB Approval Hub</title>
+<script src="https://alcdn.msauth.net/browser/2.38.0/js/msal-browser.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#F3F4F6;color:#111}
+.hd{background:linear-gradient(135deg,#1E3A5F,#0F2439);padding:14px 20px;color:#fff;display:flex;justify-content:space-between;align-items:center}
+.hd h1{font-size:17px;display:flex;align-items:center;gap:8px}
+.tabs{background:#fff;border-bottom:2px solid #E5E7EB;padding:0 20px;display:flex}
+.tab{padding:11px 18px;background:0;border:0;border-bottom:3px solid transparent;cursor:pointer;font-family:inherit;font-size:12px;font-weight:500;color:#888;display:flex;align-items:center;gap:5px}
+.tab.on{border-bottom-color:#4F46E5;font-weight:700;color:#111}
+.tbg{background:#4F46E5;color:#fff;font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px}
+.sts{padding:10px 20px 0;display:grid;grid-template-columns:repeat(auto-fit,minmax(85px,1fr));gap:8px}
+.st{background:#fff;border-radius:10px;padding:11px 13px;border:1px solid #E5E7EB;position:relative;overflow:hidden;cursor:pointer}
+.st.on{background:#111;border:2px solid var(--ac)}
+.st::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--ac)}
+.sl{font-size:9px;color:#6B7280;font-weight:600;text-transform:uppercase;margin-bottom:2px}
+.st.on .sl{color:#999}
+.sv{font-size:20px;font-weight:700}.st.on .sv{color:#fff}
+.fb{margin:8px 20px 0;background:#fff;border-radius:8px;border:1px solid #E5E7EB;padding:8px 10px;display:flex;gap:6px;flex-wrap:wrap;align-items:flex-end}
+.fg label{font-size:9px;font-weight:600;color:#999;display:block;text-transform:uppercase}
+.fg select{padding:6px 10px;border-radius:6px;border:1px solid #D1D5DB;background:#fff;font-size:12px;cursor:pointer;font-family:inherit}
+.fg select.af{border-color:#4F46E5;background:#EEF2FF}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{padding:8px 6px;text-align:left;font-size:9px;font-weight:700;color:#6B7280;text-transform:uppercase;background:#F9FAFB;border-bottom:2px solid #E5E7EB;white-space:nowrap}
+td{padding:7px 6px;vertical-align:middle}
+tr{border-bottom:1px solid #F3F4F6}tr:nth-child(even){background:#FAFAFA}
+.bdg{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:16px;font-size:10px;font-weight:600}
+.ab{width:24px;height:24px;border-radius:5px;border:0;cursor:pointer;font-weight:700;font-size:11px;display:inline-flex;align-items:center;justify-content:center}
+.el{max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:1000;display:none}.ov.open{display:block}
+.sb{position:fixed;right:0;top:0;bottom:0;width:420px;max-width:100vw;background:#fff;overflow-y:auto;box-shadow:-6px 0 30px rgba(0,0,0,.1)}
+.adj{background:#fff;border-radius:10px;border:1px solid #E5E7EB;padding:14px;margin-top:10px}
+.adjbar{position:relative;height:26px;border-radius:7px;overflow:hidden;margin-bottom:6px}
+.adjfill{position:absolute;top:0;bottom:0;left:0;border-radius:7px;background:linear-gradient(90deg,#10B981,#34D399);transition:width .3s}
+.adjtx{position:absolute;inset:0;display:flex;align-items:center;padding:0 10px;font-size:12px;font-weight:700;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.3)}
+.toast{position:fixed;top:14px;right:14px;z-index:9999;padding:8px 18px;border-radius:8px;color:#fff;font-size:12px;font-weight:600;display:none}
+.toast.show{display:block}
+.ldr{display:flex;align-items:center;justify-content:center;padding:60px;color:#6B7280;font-size:14px;flex-direction:column;gap:12px}
+.spin{width:24px;height:24px;border:3px solid #E5E7EB;border-top-color:#4F46E5;border-radius:50%;animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.login{background:#0F1117;min-height:100vh;display:flex;align-items:center;justify-content:center}
+.lbox{background:#1A1D27;border-radius:18px;padding:36px 32px;width:380px;max-width:90vw;border:1px solid #2A2D3A;text-align:center}
+.lbox h1{color:#F9FAFB;font-size:20px;margin-bottom:4px}
+.lbox p{color:#6B7280;font-size:12px;margin-bottom:4px}
+.msbtn{width:100%;padding:12px;border-radius:10px;border:1px solid #2A2D3A;background:#1E2030;color:#E5E7EB;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;margin-top:20px;display:flex;align-items:center;justify-content:center;gap:8px}
+.px{padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;display:inline-block}
+</style>
+</head>
+<body>
+<div id="app"><div class="ldr"><div class="spin"></div>Initializing...</div></div>
+<div id="toast" class="toast"></div>
+<script>
+const C={
+  clientId:'c2e1b443-4fd2-4609-9457-b74dc9dcf8c3',
+  tenantId:'33cedb1d-0381-483b-bbce-1010b20f1688',
+  redirect:'https://pantrylab.github.io/IDB/',
+  siteHost:'staalmeestersgroup.sharepoint.com',
+  sitePath:'/sites/IDBEngineeringRequests',
+  hFile:'Hours_Approval.xlsx',hSheet:'Sheet1',
+  pFile:'IDB Request for Purchase Order.xlsx',pSheet:'RFPO',
+  hW:{st:'Q',ah:'R',cm:'S',sb:'T',ad:'U',su:'V'},
+  pW:{ad:'C',st:'S',aq:'T',cm:'U',sb:'V'}
+};
+const MS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const BC={Pending:['#FEF3C7','#92400E','#F59E0B'],Approved:['#D1FAE5','#065F46','#10B981'],Rejected:['#FEE2E2','#991B1B','#EF4444'],Adjusted:['#DBEAFE','#1E40AF','#3B82F6'],Disapproved:['#FEE2E2','#991B1B','#EF4444']};
+const PC={ST:['#DBEAFE','#1E40AF'],STP:['#E0E7FF','#3730A3'],STPR:['#FCE7F3','#9D174D']};
+
+const mc={auth:{clientId:C.clientId,authority:'https://login.microsoftonline.com/'+C.tenantId,redirectUri:C.redirect},cache:{cacheLocation:'localStorage'}};
+const app=new msal.PublicClientApplication(mc);
+const sc=['Files.ReadWrite.All','Sites.ReadWrite.All','User.Read'];
+let tk=null,usr='',siteId,driveId,hFid,pFid;
+
+async function login(){try{await app.loginPopup({scopes:sc});return getTk()}catch(e){console.error(e);return null}}
+async function getTk(){const a=app.getAllAccounts();if(!a.length)return null;try{const r=await app.acquireTokenSilent({scopes:sc,account:a[0]});tk=r.accessToken;usr=a[0].name||a[0].username;return tk}catch(e){const r=await app.acquireTokenPopup({scopes:sc});tk=r.accessToken;usr=a[0].name||a[0].username;return tk}}
+async function gGet(u){const r=await fetch('https://graph.microsoft.com/v1.0'+u,{headers:{Authorization:'Bearer '+tk}});if(!r.ok)throw new Error('Graph '+r.status);return r.json()}
+async function gPatch(u,b){const r=await fetch('https://graph.microsoft.com/v1.0'+u,{method:'PATCH',headers:{Authorization:'Bearer '+tk,'Content-Type':'application/json'},body:JSON.stringify(b)});if(!r.ok)throw new Error('Patch '+r.status);return r.json()}
+
+async function findSite(){const s=await gGet('/sites/'+C.siteHost+':'+C.sitePath);siteId=s.id;const d=await gGet('/sites/'+siteId+'/drive');driveId=d.id}
+async function findFile(n){try{return(await gGet('/drives/'+driveId+'/root:/'+encodeURIComponent(n))).id}catch(e){const s=await gGet('/drives/'+driveId+"/root/search(q='"+encodeURIComponent(n)+"')");const m=s.value.find(f=>f.name===n);if(m)return m.id;throw new Error('Not found: '+n)}}
+async function readXL(fid,sh){try{return await gGet('/drives/'+driveId+"/items/"+fid+"/workbook/worksheets('"+encodeURIComponent(sh)+"')/usedRange")}catch(e){const ws=await gGet('/drives/'+driveId+'/items/'+fid+'/workbook/worksheets');if(ws.value&&ws.value.length)return gGet('/drives/'+driveId+"/items/"+fid+"/workbook/worksheets('"+encodeURIComponent(ws.value[0].name)+"')/usedRange");throw e}}
+async function writeR(fid,sh,addr,vals){await gPatch('/drives/'+driveId+"/items/"+fid+"/workbook/worksheets('"+encodeURIComponent(sh)+"')/range(address='"+addr+"')",{values:[vals]})}
+
+let S={phase:'login',tab:'hours',hrs:[],pos:[],err:null,f:{st:'All',co:'All',cd:'All',em:'All',pr:'All',mo:'All'},sf:null,sel:new Set(),det:null,adj:0,cmt:''};
+
+function toast(m,t){const e=document.getElementById('toast');e.textContent=m;e.className='toast show';e.style.background=t==='ok'?'#065F46':'#991B1B';setTimeout(()=>e.className='toast',2500)}
+
+function fmt(v){if(!v)return'';if(typeof v==='object'&&v.toISOString)return v.toISOString().substring(0,10);return String(v).substring(0,10)}
+function fmtT(v){if(!v)return'';const s=String(v);if(s.includes(':'))return s.substring(0,5);const f=parseFloat(v);if(!isNaN(f)&&f<1){const m=Math.round(f*1440);return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0')}return s.substring(0,5)}
+
+async function loadData(){
+  S.phase='loading';render();
+  try{
+    await findSite();
+    hFid=await findFile(C.hFile);
+    const hd=await readXL(hFid,C.hSheet);
+    S.hrs=hd.values.slice(1).filter(r=>r[0]).map((r,i)=>({
+      row:i+2,id:'H'+r[0],I:r[0],D:fmt(r[1]),N:r[2]||'',E:r[3]||'',W:r[4]||'',
+      P:r[5]||'',Su:r[6]||'',C:r[7]||'',X:r[8]||'',M:r[9]||'',B:r[10]||'',
+      T:fmtT(r[11]),U:fmtT(r[12]),Q:parseFloat(r[13])||0,PO:r[14]||'',AF:r[15]||'',
+      st:r[16]||'Pending',ah:r[17]!=null&&r[17]!==''?parseFloat(r[17]):null,
+      cm:r[18]||'',sb:r[19]||''
+    }));
+    pFid=await findFile(C.pFile);
+    const pd=await readXL(pFid,C.pSheet);
+    S.pos=pd.values.slice(1).filter(r=>r[0]&&r[3]).map((r,i)=>({
+      row:i+2,id:'P'+r[0],I:r[0],D:fmt(r[3]),Z:r[4]||'',PN:r[6]||'',
+      Sp:r[7]||'',J:r[8]||'',SD:r[9]||'',W:r[10]||'',A:r[11]||'',
+      G:r[12]||'',L:r[13]||'',F:fmt(r[14]),Y:fmt(r[15]),
+      Q:parseFloat(r[16])||0,OB:r[17]||'',
+      st:r[18]||'Pending',aq:r[19]!=null&&r[19]!==''?parseFloat(r[19]):null,
+      cm:r[20]||'',sb:r[21]||'',PNum:r[23]||''
+    }));
+    S.phase='app';
+  }catch(e){S.err=e.message;S.phase='error';console.error(e)}
+  render();
+}
+
+// ACTIONS
+async function apH(it,h,c){
+  const a=Math.abs(h-it.Q)>.005,st=a?'Adjusted':'Approved',nw=new Date().toISOString().substring(0,10);
+  await writeR(hFid,C.hSheet,C.hW.st+it.row+':'+C.hW.su+it.row,[st,h,c,usr,nw,'Yes']);
+  it.st=st;it.ah=h;it.cm=c;it.sb=usr;toast('Approved '+h.toFixed(2)+'h','ok');render();
+}
+async function rjH(it,c){
+  const nw=new Date().toISOString().substring(0,10);
+  await writeR(hFid,C.hSheet,C.hW.st+it.row+':'+C.hW.su+it.row,['Rejected',0,c||'Rejected',usr,nw,'Yes']);
+  it.st='Rejected';it.ah=0;it.cm=c;it.sb=usr;toast('Rejected','er');render();
+}
+async function apP(it,q,c){
+  const a=Math.abs(q-it.Q)>.5,st=a?'Adjusted':'Approved',nw=new Date().toISOString().substring(0,10);
+  await writeR(pFid,C.pSheet,C.pW.ad+it.row,[nw]);
+  await writeR(pFid,C.pSheet,C.pW.st+it.row+':'+C.pW.sb+it.row,[st,q,c,usr]);
+  it.st=st;it.aq=q;it.cm=c;it.sb=usr;toast('PO Approved','ok');render();
+}
+async function rjP(it,c){
+  const nw=new Date().toISOString().substring(0,10);
+  await writeR(pFid,C.pSheet,C.pW.ad+it.row,[nw]);
+  await writeR(pFid,C.pSheet,C.pW.st+it.row+':'+C.pW.sb+it.row,['Disapproved',0,c||'Disapproved',usr]);
+  it.st='Disapproved';it.aq=0;it.cm=c;it.sb=usr;toast('Disapproved','er');render();
+}
+async function bulkA(){
+  const items=getF().filter(d=>S.sel.has(d.id)&&d.st==='Pending');
+  for(const it of items){if(S.tab==='hours')await apH(it,it.Q,'');else await apP(it,it.Q,'');}
+  S.sel=new Set();toast(items.length+' approved','ok');
+}
+
+// FILTERING
+function myD(){return S.tab==='hours'?S.hrs.filter(d=>d.AF===usr):S.pos.filter(d=>d.OB===usr)}
+function eS(){return S.sf||S.f.st}
+function getF(){
+  let d=myD(),f=S.f,es=eS();
+  if(es!=='All')d=d.filter(x=>x.st===es);
+  if(S.tab==='hours'){
+    if(f.mo!=='All')d=d.filter(x=>x.D&&x.D.startsWith(f.mo));
+    if(f.co!=='All')d=d.filter(x=>(x.X||'')===(f.co==='None'?'':f.co));
+    if(f.cd!=='All')d=d.filter(x=>(x.C||'--')===f.cd);
+    if(f.em!=='All')d=d.filter(x=>x.E===f.em);
+    if(f.pr!=='All')d=d.filter(x=>x.M===f.pr);
+  }else{
+    if(f.co!=='All')d=d.filter(x=>x.Z===f.co);
+    if(f.cd!=='All')d=d.filter(x=>x.PN===f.cd);
+    if(f.em!=='All')d=d.filter(x=>x.G===f.em);
+    if(f.pr!=='All')d=d.filter(x=>x.J===f.pr);
+  }
+  return d.sort((a,b)=>(a.D||'').localeCompare(b.D||''));
+}
+function fO(k){
+  const d=myD();
+  if(S.tab==='hours'){
+    if(k==='co')return[...new Set(d.map(x=>x.X||''))].sort();
+    if(k==='cd')return[...new Set(d.map(x=>x.C||'--'))].sort();
+    if(k==='em')return[...new Set(d.map(x=>x.E))].sort();
+    if(k==='pr')return[...new Set(d.map(x=>x.M))].sort();
+    if(k==='mo'){const s=new Set();d.forEach(x=>{if(x.D){const p=x.D.split('-');s.add(p[0]+'-'+p[1])}});return[...s].sort().map(y=>{const p=y.split('-');return{v:y,l:MS[+p[1]-1]+' '+p[0]}})}
+  }else{
+    if(k==='co')return[...new Set(d.map(x=>x.Z))].sort();
+    if(k==='cd')return[...new Set(d.map(x=>x.PN))].sort();
+    if(k==='em')return[...new Set(d.map(x=>x.G))].sort();
+    if(k==='pr')return[...new Set(d.map(x=>x.J))].sort();
+  }
+  return[];
+}
+
+// GLOBALS
+window.doLogin=async()=>{document.getElementById('app').innerHTML='<div class="ldr"><div class="spin"></div>Signing in...</div>';const t=await login();if(t)await loadData();else{S.phase='login';render()}};
+window.swTab=t=>{S.tab=t;S.f={st:'All',co:'All',cd:'All',em:'All',pr:'All',mo:'All'};S.sf=null;S.sel=new Set();render()};
+window.setF=(k,v)=>{S.f[k]=v;render()};
+window.cSt=k=>{S.sf=S.sf===k?null:k;S.f.st='All';render()};
+window.resF=()=>{S.f={st:'All',co:'All',cd:'All',em:'All',pr:'All',mo:'All'};S.sf=null;S.sel=new Set();render()};
+window.tSel=id=>{S.sel.has(id)?S.sel.delete(id):S.sel.add(id);render()};
+window.tAll=()=>{S.sel.size?S.sel=new Set():S.sel=new Set(getF().filter(d=>d.st==='Pending').map(d=>d.id));render()};
+window.oDet=id=>{const it=myD().find(d=>d.id===id);if(!it)return;S.det=it;S.adj=S.tab==='hours'?(it.ah??it.Q):(it.aq??it.Q);S.cmt=it.cm||'';render()};
+window.cDet=()=>{S.det=null;render()};
+window.qA=id=>{const it=myD().find(d=>d.id===id);if(!it)return;S.tab==='hours'?apH(it,it.Q,''):apP(it,it.Q,'')};
+window.qR=id=>{const it=myD().find(d=>d.id===id);if(!it)return;S.tab==='hours'?rjH(it,''):rjP(it,'')};
+window.doA=()=>{const d=S.det,c=document.getElementById('dcm')?.value||'';d.id.startsWith('H')?apH(d,S.adj,c):apP(d,S.adj,c);cDet()};
+window.doR=()=>{const d=S.det,c=document.getElementById('dcm')?.value||'';d.id.startsWith('H')?rjH(d,c):rjP(d,c);cDet()};
+window.sAdj=v=>{S.adj=v;renderSB()};
+window.doB=bulkA;
+window.doRef=loadData;
+
+function bdg(s){const v=BC[s]||BC.Pending;return'<span class="bdg" style="background:'+v[0]+';color:'+v[1]+';border:1px solid '+v[2]+'"><span style="width:5px;height:5px;border-radius:50%;background:'+v[2]+';display:inline-block"></span>'+s+'</span>'}
+function px(x){if(!x)return'<span style="color:#aaa;font-size:10px">--</span>';const v=PC[x]||['#eee','#555'];return'<span class="px" style="background:'+v[0]+';color:'+v[1]+'">'+x+'</span>'}
+
+function render(){
+  const el=document.getElementById('app');
+  if(S.phase==='login'){
+    el.innerHTML='<div class="login"><div class="lbox"><div style="width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,#6366F1,#8B5CF6);display:inline-flex;align-items:center;justify-content:center;font-size:22px;margin-bottom:12px;color:#fff">&#9889;</div><h1>IDB Approval Hub</h1><p>Hours & Purchase Order Approvals</p><p style="margin-bottom:0">STM Group - Staalmesters</p><button class="msbtn" onclick="doLogin()"><svg width="18" height="18" viewBox="0 0 21 21"><rect x="1" y="1" width="9" height="9" fill="#f25022"/><rect x="11" y="1" width="9" height="9" fill="#7fba00"/><rect x="1" y="11" width="9" height="9" fill="#00a4ef"/><rect x="11" y="11" width="9" height="9" fill="#ffb900"/></svg>Sign in with Microsoft</button></div></div>';return;
+  }
+  if(S.phase==='loading'){el.innerHTML='<div class="ldr"><div class="spin"></div>Loading from SharePoint...</div>';return}
+  if(S.phase==='error'){el.innerHTML='<div class="ldr"><div style="color:#991B1B;font-weight:600">'+S.err+'</div><div style="font-size:12px;color:#6B7280;max-width:400px;text-align:center">Check console (F12) for details.</div><button onclick="doRef()" style="padding:8px 16px;border-radius:8px;border:0;background:#4F46E5;color:#fff;cursor:pointer">Retry</button></div>';return}
+
+  const isH=S.tab==='hours',md=myD(),fi=getF(),f=S.f,es=eS();
+  const hP=S.hrs.filter(d=>d.AF===usr&&d.st==='Pending').length;
+  const pP=S.pos.filter(d=>d.OB===usr&&d.st==='Pending').length;
+  const anyF=es!=='All'||f.co!=='All'||f.cd!=='All'||f.em!=='All'||f.pr!=='All'||f.mo!=='All';
+  const selP=[...S.sel].filter(id=>md.find(d=>d.id===id&&d.st==='Pending')).length;
+  const ini=usr.split(' ').map(w=>w[0]).join('');
+  const sts=isH?['Pending','Approved','Adjusted','Rejected']:['Pending','Approved','Adjusted','Disapproved'];
+  const mO=isH?fO('mo'):[];const cO=fO('co'),cdO=fO('cd'),eO=fO('em'),pO=fO('pr');
+
+  // Stats
+  const stA=isH?[
+    {l:'Total',v:md.length,a:'#6366F1',k:null},{l:'Pending',v:md.filter(d=>d.st==='Pending').length,a:'#F59E0B',k:'Pending'},
+    {l:'Approved',v:md.filter(d=>d.st==='Approved'||d.st==='Adjusted').length,a:'#10B981',k:'Approved'},
+    {l:'Rejected',v:md.filter(d=>d.st==='Rejected').length,a:'#EF4444',k:'Rejected'}
+  ]:[
+    {l:'Total',v:md.length,a:'#6366F1',k:null},{l:'Pending',v:md.filter(d=>d.st==='Pending').length,a:'#F59E0B',k:'Pending'},
+    {l:'Approved',v:md.filter(d=>d.st==='Approved'||d.st==='Adjusted').length,a:'#10B981',k:'Approved'},
+    {l:'Disappr.',v:md.filter(d=>d.st==='Disapproved').length,a:'#EF4444',k:'Disapproved'}
+  ];
+
+  // Table rows
+  let rows='';
+  fi.forEach((r,i)=>{
+    const adj=r.st==='Adjusted',pen=r.st==='Pending',sc=S.sel.has(r.id)?'style="background:#EEF2FF"':'';
+    const ck=pen?'<input type="checkbox" '+(S.sel.has(r.id)?'checked':'')+' onchange="tSel(\''+r.id+'\')">':'';
+    const ahV=isH?r.ah:r.aq;
+    const ahD=ahV!=null?'<span style="font-weight:700;color:'+(adj?'#1E40AF':r.st==='Rejected'||r.st==='Disapproved'?'#991B1B':'#059669')+'">'+(isH?ahV.toFixed(2):ahV)+'</span>':'<span style="color:#ddd">--</span>';
+    const acts='<button class="ab" style="background:#EEF2FF;color:#4F46E5" onclick="oDet(\''+r.id+'\')">i</button>'+(pen?'<button class="ab" style="background:#D1FAE5;color:#065F46" onclick="qA(\''+r.id+'\')">&#10003;</button><button class="ab" style="background:#FEE2E2;color:#991B1B" onclick="qR(\''+r.id+'\')">&#10007;</button>':'');
+
+    let cells;
+    if(isH){
+      cells='<td>'+ck+'</td><td style="font-weight:600;color:#6366F1">#'+r.I+'</td><td>'+r.D+'</td><td>'+r.E+'</td><td>'+px(r.X)+'</td><td style="font-family:monospace;font-size:11px;font-weight:600">'+(r.C||'--')+'</td><td><div class="el">'+r.M+'</div></td><td style="font-size:11px">'+r.B+'</td><td style="font-family:monospace;font-size:11px">'+r.T+'-'+r.U+'</td><td style="text-align:right;font-weight:700;font-family:monospace;'+(adj?'text-decoration:line-through;color:#aaa':'')+'">'+r.Q.toFixed(2)+'</td><td style="text-align:right;font-family:monospace">'+ahD+'</td><td>'+bdg(r.st)+'</td><td><div style="display:flex;gap:2px">'+acts+'</div></td>';
+    }else{
+      cells='<td>'+ck+'</td><td style="font-weight:600;color:#8B5CF6">PO-'+r.I+'</td><td>'+r.D+'</td><td><div class="el" style="max-width:110px">'+r.Z+'</div></td><td style="font-family:monospace;font-size:11px;font-weight:600">'+r.PN+'</td><td><div class="el">'+r.J+'</div></td><td>'+r.G+'</td><td style="font-size:10px;color:#888">'+r.W+'</td><td style="font-size:10px">'+r.F+' to '+r.Y+'</td><td style="text-align:right;font-weight:700;font-family:monospace;'+(adj?'text-decoration:line-through;color:#aaa':'')+'">'+r.Q+'</td><td style="text-align:right;font-family:monospace">'+ahD+'</td><td>'+bdg(r.st)+'</td><td><div style="display:flex;gap:2px">'+acts+'</div></td>';
+    }
+    rows+='<tr '+sc+'>'+cells+'</tr>';
+  });
+  if(!fi.length)rows='<tr><td colspan="13" style="text-align:center;padding:30px;color:#aaa">No entries</td></tr>';
+
+  const thR=isH?'<th><input type="checkbox" onchange="tAll()"></th><th>ID</th><th>Date</th><th>Employee</th><th>Co</th><th>Code</th><th>Project</th><th>Sub</th><th>Time</th><th style="text-align:right">Req</th><th style="text-align:right">Appr</th><th>Status</th><th>Act</th>'
+    :'<th><input type="checkbox" onchange="tAll()"></th><th>ID</th><th>Date</th><th>Company</th><th>Project</th><th>Desc</th><th>Engineer</th><th>Type</th><th>Timeline</th><th style="text-align:right">Req</th><th style="text-align:right">Appr</th><th>Status</th><th>Act</th>';
+
+  el.innerHTML=
+    '<div class="hd"><h1>&#9889; IDB Approval Hub</h1><div style="display:flex;align-items:center;gap:10px"><div style="text-align:right"><div style="font-size:9px;color:rgba(255,255,255,.5);text-transform:uppercase">Signed in</div><div style="font-size:12px;font-weight:600">'+usr+'</div></div><div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#3B82F6,#6366F1);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px">'+ini+'</div><button onclick="doRef()" style="background:rgba(255,255,255,.15);border:0;color:#fff;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:11px" title="Refresh">&#8635;</button></div></div>'+
+    '<div class="tabs"><button class="tab '+(S.tab==='hours'?'on':'')+'" onclick="swTab(\'hours\')">Worked Hours '+(hP?'<span class="tbg">'+hP+'</span>':'')+'</button><button class="tab '+(S.tab==='po'?'on':'')+'" onclick="swTab(\'po\')">Request for Purchase Order '+(pP?'<span class="tbg">'+pP+'</span>':'')+'</button></div>'+
+    '<div class="sts">'+stA.map(s=>'<div class="st '+(S.sf===s.k||(s.k===null&&!S.sf)?'on':'')+'" style="--ac:'+s.a+'" onclick="cSt('+(s.k?"'"+s.k+"'":'null')+')"><div class="sl">'+s.l+'</div><div class="sv">'+s.v+'</div></div>').join('')+'</div>'+
+    '<div class="fb">'+(isH?'<div class="fg"><label>Month</label><select class="'+(f.mo!=='All'?'af':'')+'" onchange="setF(\'mo\',this.value)"><option value="All">All</option>'+mO.map(m=>'<option value="'+m.v+'"'+(f.mo===m.v?' selected':'')+'>'+m.l+'</option>').join('')+'</select></div>':'')+
+    '<div class="fg"><label>Company</label><select class="'+(f.co!=='All'?'af':'')+'" onchange="setF(\'co\',this.value)"><option value="All">All</option>'+cO.map(o=>'<option value="'+(o||'None')+'"'+(f.co===(o||'None')?' selected':'')+'>'+(o||'None')+'</option>').join('')+'</select></div>'+
+    '<div class="fg"><label>'+(isH?'Proj Code':'Project #')+'</label><select class="'+(f.cd!=='All'?'af':'')+'" onchange="setF(\'cd\',this.value)"><option value="All">All</option>'+cdO.map(o=>'<option value="'+o+'"'+(f.cd===o?' selected':'')+'>'+o+'</option>').join('')+'</select></div>'+
+    '<div class="fg"><label>'+(isH?'Employee':'Engineer')+'</label><select class="'+(f.em!=='All'?'af':'')+'" onchange="setF(\'em\',this.value)" style="min-width:100px"><option value="All">All</option>'+eO.map(o=>'<option'+(f.em===o?' selected':'')+'>'+o+'</option>').join('')+'</select></div>'+
+    '<div class="fg"><label>Project</label><select class="'+(f.pr!=='All'?'af':'')+'" onchange="setF(\'pr\',this.value)" style="max-width:160px"><option value="All">All</option>'+pO.map(o=>'<option'+(f.pr===o?' selected':'')+'>'+o+'</option>').join('')+'</select></div>'+
+    '<div class="fg"><label>Status</label><select class="'+(es!=='All'?'af':'')+'" onchange="setF(\'st\',this.value);S.sf=null"><option value="All">All</option>'+sts.map(o=>'<option'+(es===o?' selected':'')+'>'+o+'</option>').join('')+'</select></div>'+
+    (anyF?'<button onclick="resF()" style="padding:5px 8px;border-radius:6px;border:0;background:#FEE2E2;color:#991B1B;font-size:10px;font-weight:600;cursor:pointer">Reset</button>':'')+'</div>'+
+    (selP?'<div style="padding:6px 20px 0;display:flex;gap:6px;align-items:center;font-size:11px;color:#888">'+selP+' selected <button onclick="doB()" style="padding:5px 12px;border-radius:6px;border:0;background:#059669;color:#fff;font-size:11px;font-weight:600;cursor:pointer">Approve All</button></div>':'')+
+    '<div style="padding:10px 20px 20px"><div style="background:#fff;border-radius:10px;border:1px solid #E5E7EB;overflow:hidden"><div style="overflow-x:auto"><table><thead><tr>'+thR+'</tr></thead><tbody>'+rows+'</tbody></table></div>'+
+    '<div style="padding:8px 14px;border-top:1px solid #E5E7EB;background:#F9FAFB;display:flex;justify-content:space-between;font-size:11px;color:#6B7280"><span>'+fi.length+' of '+md.length+'</span><span>Req: <strong>'+fi.reduce((s,d)=>s+(isH?d.Q:d.Q),0).toFixed(isH?2:0)+'</strong> | Appr: <strong style="color:#059669">'+fi.filter(d=>(isH?d.ah:d.aq)!=null&&d.st!=='Rejected'&&d.st!=='Disapproved').reduce((s,d)=>s+((isH?d.ah:d.aq)||0),0).toFixed(isH?2:0)+'</strong></span></div>'+
+    '</div></div>'+
+    '<div id="ov" class="ov '+(S.det?'open':'')+'" onclick="cDet()"><div class="sb" onclick="event.stopPropagation()"><div style="padding:20px 22px" id="sbc"></div></div></div>';
+
+  if(S.det)renderSB();
+}
+
+function renderSB(){
+  const d=S.det;if(!d)return;
+  const isH=d.id.startsWith('H'),pen=d.st==='Pending',req=isH?d.Q:d.Q;
+  let flds;
+  if(isH)flds='<p><b>Employee:</b> '+d.E+' ('+d.N+')</p><p><b>Date:</b> '+d.D+' | '+d.T+' - '+d.U+'</p><p><b>Requested:</b> '+d.Q.toFixed(2)+'h</p><p><b>Project Code:</b> '+d.C+'</p><p><b>Project:</b> '+d.M+'</p><p><b>Sub:</b> '+d.B+' ('+d.Su+')</p><p><b>Work:</b> '+d.W+'</p>';
+  else flds='<p><b>Company:</b> '+d.Z+'</p><p><b>Project:</b> '+d.PN+' - '+d.J+'</p><p><b>Task:</b> '+d.A+'</p><p><b>Engineer:</b> '+d.G+'</p><p><b>Timeline:</b> '+d.F+' to '+d.Y+'</p><p><b>Requested:</b> '+d.Q+'h</p>';
+  if(!pen&&d.sb)flds+='<hr style="border:0;border-top:1px solid #eee;margin:8px 0"><p><b>Approved:</b> '+(isH?(d.ah!=null?d.ah.toFixed(2):'--')+'h':(d.aq!=null?d.aq:'--')+'h')+'</p><p><b>Signed:</b> '+d.sb+'</p>';
+
+  const pct=req>0?S.adj/req*100:100,diff=req-S.adj,isR=diff>.005;
+  const adjH=pen?
+    '<div class="adj"><div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="font-size:11px;font-weight:600">Adjustment</span>'+(isR?'<span style="font-size:10px;color:#DC2626;background:#FEE2E2;padding:1px 6px;border-radius:6px;font-weight:600">-'+diff.toFixed(2)+'</span>':'<span style="font-size:10px;color:#059669;background:#D1FAE5;padding:1px 6px;border-radius:6px;font-weight:600">Full</span>')+'</div>'+
+    '<div class="adjbar" style="background:'+(isR?'#FEE2E2':'#F3F4F6')+'"><div class="adjfill" style="width:'+Math.min(pct,100)+'%"></div><div class="adjtx">'+S.adj.toFixed(2)+'h</div></div>'+
+    '<input type="range" min="0" max="'+req*100+'" value="'+S.adj*100+'" oninput="sAdj(parseInt(this.value)/100)" style="width:100%;accent-color:#3B82F6;cursor:pointer;margin-bottom:4px">'+
+    '<div style="display:flex;gap:6px"><input type="number" min="0" step="0.25" value="'+S.adj+'" style="flex:1;padding:6px;border-radius:6px;border:1px solid #D1D5DB;font-size:13px;font-weight:700;font-family:monospace;box-sizing:border-box" oninput="const v=parseFloat(this.value);if(!isNaN(v)&&v>=0)sAdj(v)">'+
+    [100,75,50].map(n=>'<button style="padding:6px 8px;border-radius:6px;border:1px solid #D1D5DB;background:'+(Math.abs(S.adj-req*n/100)<.01?'#D1FAE5':'#fff')+';font-size:10px;font-weight:600;cursor:pointer" onclick="sAdj(Math.round('+req+'*'+n+')/100)">'+n+'%</button>').join('')+'</div></div>'+
+    '<div style="margin-top:10px"><textarea id="dcm" placeholder="Comment..." style="width:100%;min-height:36px;border-radius:6px;border:1px solid #D1D5DB;padding:6px;font-size:12px;font-family:inherit;box-sizing:border-box;resize:vertical">'+S.cmt+'</textarea>'+
+    '<div style="display:flex;gap:6px;margin-top:6px"><button onclick="doA()" style="flex:1;padding:9px;border-radius:8px;border:0;background:#059669;color:#fff;font-size:12px;font-weight:600;cursor:pointer">Approve '+S.adj.toFixed(isH?2:0)+'h</button><button onclick="doR()" style="flex:1;padding:9px;border-radius:8px;border:0;background:#DC2626;color:#fff;font-size:12px;font-weight:600;cursor:pointer">'+(isH?'Reject':'Disapprove')+'</button></div></div>':'';
+
+  document.getElementById('sbc').innerHTML=
+    '<div style="display:flex;justify-content:space-between;margin-bottom:12px"><h2 style="font-size:16px">'+(isH?'#'+d.I:'PO-'+d.I)+'</h2><button onclick="cDet()" style="background:0;border:0;font-size:18px;cursor:pointer;color:#aaa">x</button></div>'+
+    '<div style="margin-bottom:12px">'+bdg(d.st)+'</div>'+
+    '<div style="font-size:12px">'+flds+'</div>'+adjH;
+}
+
+// INIT
+(async()=>{
+  await app.initialize();
+  await app.handleRedirectPromise();
+  if(app.getAllAccounts().length>0){const t=await getTk();if(t){await loadData();return}}
+  S.phase='login';render();
+})();
+</script>
+</body>
+</html>
