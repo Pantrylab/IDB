@@ -187,20 +187,28 @@ function getF(){
   return d.sort((a,b)=>{const k=S.sortK,dir=S.sortD==='asc'?1:-1;let av=a[k],bv=b[k];if(av==null)av='';if(bv==null)bv='';if(typeof av==='number'&&typeof bv==='number')return(av-bv)*dir;return String(av).localeCompare(String(bv))*dir});
 }
 function fO(k){
-  const d=myD();
+  let d=myD();
   if(S.tab==='hours'){
     if(k==='co')return[...new Set(d.map(x=>x.X||''))].sort();
     if(k==='cd')return[...new Set(d.map(x=>x.C||'--'))].sort();
     if(k==='em')return[...new Set(d.map(x=>x.E))].sort();
     if(k==='pr')return[...new Set(d.map(x=>x.M))].sort();
-    if(k==='sp')return[...new Set(d.map(x=>x.B||'--'))].sort();
+    if(k==='sp'){
+      if(S.f.cd!=='All')d=d.filter(x=>(x.C||'--')===S.f.cd);
+      else if(S.f.pr!=='All')d=d.filter(x=>x.M===S.f.pr);
+      return[...new Set(d.map(x=>x.B||'--'))].sort();
+    }
     if(k==='mo'){const s=new Set();d.forEach(x=>{if(x.D){const p=x.D.split('-');if(p.length>=2)s.add(p[0]+'-'+p[1])}});return[...s].sort().map(y=>{const p=y.split('-');return{v:y,l:MS[+p[1]-1]+' '+p[0]}})}
   }else{
     if(k==='co')return[...new Set(d.map(x=>x.Z))].sort();
     if(k==='cd')return[...new Set(d.map(x=>x.PN))].sort();
     if(k==='em')return[...new Set(d.map(x=>x.G))].sort();
     if(k==='pr')return[...new Set(d.map(x=>x.J))].sort();
-    if(k==='sp')return[...new Set(d.map(x=>x.SD||'--'))].sort();
+    if(k==='sp'){
+      if(S.f.cd!=='All')d=d.filter(x=>x.PN===S.f.cd);
+      else if(S.f.pr!=='All')d=d.filter(x=>x.J===S.f.pr);
+      return[...new Set(d.map(x=>x.SD||'--'))].sort();
+    }
   }
   return[];
 }
@@ -208,7 +216,26 @@ function fO(k){
 // GLOBALS
 window.doLogin=async()=>{document.getElementById('app').innerHTML='<div class="ldr"><div class="spin"></div>Redirecting to Microsoft...</div>';await login()};
 window.swTab=t=>{S.tab=t;S.f={st:'All',co:'All',cd:'All',em:'All',pr:'All',mo:'All',sp:'All'};S.sf=null;S.sel=new Set();S.sortK='D';S.sortD='asc';render()};
-window.setF=(k,v)=>{S.f[k]=v;render()};
+window.setF=(k,v)=>{
+  S.f[k]=v;
+  // Link Project Code <-> Project Name
+  if(S.tab==='hours'){
+    if(k==='cd'&&v!=='All'){
+      const m=myD().find(d=>(d.C||'--')===v);if(m)S.f.pr=m.M||'All';S.f.sp='All';
+    }else if(k==='pr'&&v!=='All'){
+      const m=myD().find(d=>d.M===v);if(m)S.f.cd=m.C||'All';S.f.sp='All';
+    }else if(k==='cd'&&v==='All'){S.f.pr='All';S.f.sp='All'}
+    else if(k==='pr'&&v==='All'){S.f.cd='All';S.f.sp='All'}
+  }else{
+    if(k==='cd'&&v!=='All'){
+      const m=myD().find(d=>d.PN===v);if(m)S.f.pr=m.J||'All';S.f.sp='All';
+    }else if(k==='pr'&&v!=='All'){
+      const m=myD().find(d=>d.J===v);if(m)S.f.cd=m.PN||'All';S.f.sp='All';
+    }else if(k==='cd'&&v==='All'){S.f.pr='All';S.f.sp='All'}
+    else if(k==='pr'&&v==='All'){S.f.cd='All';S.f.sp='All'}
+  }
+  render();
+};
 window.doSort=k=>{if(S.sortK===k)S.sortD=S.sortD==='asc'?'desc':'asc';else{S.sortK=k;S.sortD='asc'}render()};
 window.cSt=k=>{S.sf=S.sf===k?null:k;S.f.st='All';render()};
 window.resF=()=>{S.f={st:'All',co:'All',cd:'All',em:'All',pr:'All',mo:'All',sp:'All'};S.sf=null;S.sel=new Set();render()};
@@ -313,8 +340,8 @@ function renderSB(){
   const d=S.det;if(!d)return;
   const isH=d.id.startsWith('H'),pen=d.st==='Pending',req=isH?d.Q:d.Q;
   let flds;
-  if(isH)flds='<p><b>Employee:</b> '+d.E+' ('+d.N+')</p><p><b>Date:</b> '+d.D+' | '+d.T+' - '+d.U+'</p><p><b>Requested:</b> '+d.Q.toFixed(2)+'h</p><p><b>Project Code:</b> '+d.C+'</p><p><b>Project:</b> '+d.M+'</p><p><b>Sub:</b> '+d.B+' ('+d.Su+')</p><p><b>Work:</b> '+d.W+'</p>';
-  else flds='<p><b>Company:</b> '+d.Z+'</p><p><b>Project:</b> '+d.PN+' - '+d.J+'</p><p><b>Task:</b> '+d.A+'</p><p><b>Engineer:</b> '+d.G+'</p><p><b>Timeline:</b> '+d.F+' to '+d.Y+'</p><p><b>Requested:</b> '+d.Q+'h</p>';
+  if(isH)flds='<p><b>Employee:</b> '+d.E+' ('+d.N+')</p><p><b>Date:</b> '+d.D+' | '+d.T+' - '+d.U+'</p><p><b>Requested:</b> '+d.Q.toFixed(2)+'h</p><p style="margin-top:8px;padding-top:8px;border-top:1px solid #eee"><b>Project:</b> '+d.M+'</p><p><b>Project Code:</b> <span style="font-family:monospace;font-weight:700;color:#4F46E5">'+d.C+'</span></p><p><b>Subphase:</b> '+d.B+' <span style="color:#6B7280;font-size:11px">('+d.Su+')</span></p><p><b>Work:</b> '+d.W+'</p>';
+  else flds='<p><b>Company:</b> '+d.Z+'</p><p style="margin-top:8px;padding-top:8px;border-top:1px solid #eee"><b>Project:</b> '+d.J+'</p><p><b>Project #:</b> <span style="font-family:monospace;font-weight:700;color:#8B5CF6">'+d.PN+'</span></p>'+(d.Sp?'<p><b>Subphase:</b> '+d.Sp+' <span style="color:#6B7280;font-size:11px">('+d.SD+')</span></p>':'')+'<p><b>Task:</b> '+d.A+'</p><p><b>Engineer:</b> '+d.G+'</p><p><b>Timeline:</b> '+d.F+' to '+d.Y+'</p><p><b>Requested:</b> '+d.Q+'h</p>';
   if(!pen&&d.sb)flds+='<hr style="border:0;border-top:1px solid #eee;margin:8px 0"><p><b>Approved:</b> '+(isH?(d.ah!=null?d.ah.toFixed(2):'--')+'h':(d.aq!=null?d.aq:'--')+'h')+'</p><p><b>Signed:</b> '+d.sb+'</p>';
 
   const pct=req>0?S.adj/req*100:100,diff=req-S.adj,isR=diff>.005;
