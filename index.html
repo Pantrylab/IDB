@@ -75,8 +75,8 @@ const app=new msal.PublicClientApplication(mc);
 const sc=['Files.ReadWrite.All','Sites.ReadWrite.All','User.Read'];
 let tk=null,usr='',siteId,driveId,hFid,pFid;
 
-async function login(){try{await app.loginPopup({scopes:sc});return getTk()}catch(e){console.error(e);return null}}
-async function getTk(){const a=app.getAllAccounts();if(!a.length)return null;try{const r=await app.acquireTokenSilent({scopes:sc,account:a[0]});tk=r.accessToken;usr=a[0].name||a[0].username;return tk}catch(e){const r=await app.acquireTokenPopup({scopes:sc});tk=r.accessToken;usr=a[0].name||a[0].username;return tk}}
+async function login(){try{await app.loginRedirect({scopes:sc});return null}catch(e){console.error(e);return null}}
+async function getTk(){const a=app.getAllAccounts();if(!a.length)return null;try{const r=await app.acquireTokenSilent({scopes:sc,account:a[0]});tk=r.accessToken;usr=a[0].name||a[0].username;return tk}catch(e){await app.acquireTokenRedirect({scopes:sc});return null}}
 async function gGet(u){const r=await fetch('https://graph.microsoft.com/v1.0'+u,{headers:{Authorization:'Bearer '+tk}});if(!r.ok)throw new Error('Graph '+r.status);return r.json()}
 async function gPatch(u,b){const r=await fetch('https://graph.microsoft.com/v1.0'+u,{method:'PATCH',headers:{Authorization:'Bearer '+tk,'Content-Type':'application/json'},body:JSON.stringify(b)});if(!r.ok)throw new Error('Patch '+r.status);return r.json()}
 
@@ -187,7 +187,7 @@ function fO(k){
 }
 
 // GLOBALS
-window.doLogin=async()=>{document.getElementById('app').innerHTML='<div class="ldr"><div class="spin"></div>Signing in...</div>';const t=await login();if(t)await loadData();else{S.phase='login';render()}};
+window.doLogin=async()=>{document.getElementById('app').innerHTML='<div class="ldr"><div class="spin"></div>Redirecting to Microsoft...</div>';await login()};
 window.swTab=t=>{S.tab=t;S.f={st:'All',co:'All',cd:'All',em:'All',pr:'All',mo:'All'};S.sf=null;S.sel=new Set();render()};
 window.setF=(k,v)=>{S.f[k]=v;render()};
 window.cSt=k=>{S.sf=S.sf===k?null:k;S.f.st='All';render()};
@@ -304,7 +304,8 @@ function renderSB(){
 // INIT
 (async()=>{
   await app.initialize();
-  await app.handleRedirectPromise();
+  const resp=await app.handleRedirectPromise();
+  if(resp){tk=resp.accessToken;usr=resp.account.name||resp.account.username;await loadData();return}
   if(app.getAllAccounts().length>0){const t=await getTk();if(t){await loadData();return}}
   S.phase='login';render();
 })();
