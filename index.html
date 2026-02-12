@@ -16,10 +16,10 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#F3F4F6;color:#111}
 .tbg{background:#4F46E5;color:#fff;font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px}
 .sts{padding:10px 20px 0;display:grid;grid-template-columns:repeat(auto-fit,minmax(85px,1fr));gap:8px}
 .st{background:#fff;border-radius:10px;padding:11px 13px;border:1px solid #E5E7EB;position:relative;overflow:hidden;cursor:pointer}
-.st.on{background:#111;border:2px solid var(--ac)}
+.st.on{background:var(--ac);border:2px solid var(--ac)}
 .st::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--ac)}
 .sl{font-size:9px;color:#6B7280;font-weight:600;text-transform:uppercase;margin-bottom:2px}
-.st.on .sl{color:#999}
+.st.on .sl{color:rgba(255,255,255,.75)}
 .sv{font-size:20px;font-weight:700}.st.on .sv{color:#fff}
 .fb{margin:8px 20px 0;background:#fff;border-radius:8px;border:1px solid #E5E7EB;padding:8px 10px;display:flex;gap:6px;flex-wrap:wrap;align-items:flex-end}
 .fg label{font-size:9px;font-weight:600;color:#999;display:block;text-transform:uppercase}
@@ -83,7 +83,15 @@ async function gPatch(u,b){const r=await fetch('https://graph.microsoft.com/v1.0
 async function findSite(){const s=await gGet('/sites/'+C.siteHost+':'+C.sitePath);siteId=s.id;const d=await gGet('/sites/'+siteId+'/drive');driveId=d.id}
 async function findFile(n){try{return(await gGet('/drives/'+driveId+'/root:/'+encodeURIComponent(n))).id}catch(e){const s=await gGet('/drives/'+driveId+"/root/search(q='"+encodeURIComponent(n)+"')");const m=s.value.find(f=>f.name===n);if(m)return m.id;throw new Error('Not found: '+n)}}
 async function readXL(fid,sh){try{return await gGet('/drives/'+driveId+"/items/"+fid+"/workbook/worksheets('"+encodeURIComponent(sh)+"')/usedRange")}catch(e){const ws=await gGet('/drives/'+driveId+'/items/'+fid+'/workbook/worksheets');if(ws.value&&ws.value.length)return gGet('/drives/'+driveId+"/items/"+fid+"/workbook/worksheets('"+encodeURIComponent(ws.value[0].name)+"')/usedRange");throw e}}
-async function writeR(fid,sh,addr,vals){await gPatch('/drives/'+driveId+"/items/"+fid+"/workbook/worksheets('"+encodeURIComponent(sh)+"')/range(address='"+addr+"')",{values:[vals]})}
+async function writeR(fid,sh,addr,vals){
+  try{
+    await gPatch('/drives/'+driveId+"/items/"+fid+"/workbook/worksheets('"+encodeURIComponent(sh)+"')/range(address='"+addr+"')",{values:[vals]});
+  }catch(e){
+    // Token might have expired, refresh and retry
+    await getTk();
+    await gPatch('/drives/'+driveId+"/items/"+fid+"/workbook/worksheets('"+encodeURIComponent(sh)+"')/range(address='"+addr+"')",{values:[vals]});
+  }
+}
 
 let S={phase:'login',tab:'hours',hrs:[],pos:[],err:null,f:{st:'All',co:'All',cd:'All',em:'All',pr:'All',mo:'All'},sf:null,sel:new Set(),det:null,adj:0,cmt:''};
 
@@ -196,12 +204,12 @@ window.tSel=id=>{S.sel.has(id)?S.sel.delete(id):S.sel.add(id);render()};
 window.tAll=()=>{S.sel.size?S.sel=new Set():S.sel=new Set(getF().filter(d=>d.st==='Pending').map(d=>d.id));render()};
 window.oDet=id=>{const it=myD().find(d=>d.id===id);if(!it)return;S.det=it;S.adj=S.tab==='hours'?(it.ah??it.Q):(it.aq??it.Q);S.cmt=it.cm||'';render()};
 window.cDet=()=>{S.det=null;render()};
-window.qA=id=>{const it=myD().find(d=>d.id===id);if(!it)return;S.tab==='hours'?apH(it,it.Q,''):apP(it,it.Q,'')};
-window.qR=id=>{const it=myD().find(d=>d.id===id);if(!it)return;S.tab==='hours'?rjH(it,''):rjP(it,'')};
-window.doA=()=>{const d=S.det,c=document.getElementById('dcm')?.value||'';d.id.startsWith('H')?apH(d,S.adj,c):apP(d,S.adj,c);cDet()};
-window.doR=()=>{const d=S.det,c=document.getElementById('dcm')?.value||'';d.id.startsWith('H')?rjH(d,c):rjP(d,c);cDet()};
+window.qA=async id=>{const it=myD().find(d=>d.id===id);if(!it)return;try{if(S.tab==='hours')await apH(it,it.Q,'');else await apP(it,it.Q,'')}catch(e){toast('Error: '+e.message,'er');console.error(e)}};
+window.qR=async id=>{const it=myD().find(d=>d.id===id);if(!it)return;try{if(S.tab==='hours')await rjH(it,'');else await rjP(it,'')}catch(e){toast('Error: '+e.message,'er');console.error(e)}};
+window.doA=async()=>{const d=S.det,c=document.getElementById('dcm')?.value||'';try{if(d.id.startsWith('H'))await apH(d,S.adj,c);else await apP(d,S.adj,c);cDet()}catch(e){toast('Error: '+e.message,'er');console.error(e)}};
+window.doR=async()=>{const d=S.det,c=document.getElementById('dcm')?.value||'';try{if(d.id.startsWith('H'))await rjH(d,c);else await rjP(d,c);cDet()}catch(e){toast('Error: '+e.message,'er');console.error(e)}};
 window.sAdj=v=>{S.adj=v;renderSB()};
-window.doB=bulkA;
+window.doB=async()=>{try{await bulkA()}catch(e){toast('Error: '+e.message,'er');console.error(e)}};
 window.doRef=loadData;
 
 function bdg(s){const v=BC[s]||BC.Pending;return'<span class="bdg" style="background:'+v[0]+';color:'+v[1]+';border:1px solid '+v[2]+'"><span style="width:5px;height:5px;border-radius:50%;background:'+v[2]+';display:inline-block"></span>'+s+'</span>'}
